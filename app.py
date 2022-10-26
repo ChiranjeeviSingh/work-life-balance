@@ -5,7 +5,7 @@ from employee_form import EmployeeForm
 
 
 # prediction function
-def make_prediction(model, encoder, sample_json):
+def make_prediction(features_model, thepolymodel, svrmodel, sample_json):
     # parse input from request
     #Days = sample_json['Days']
     Gender = sample_json['Gender']
@@ -20,14 +20,17 @@ def make_prediction(model, encoder, sample_json):
     # Make an input vector
     employee = [[Gender, companyType, WFHsetupavailable,Age,Tenure,vacationsTaken,Designation,avghourworkday,employeeSatisfactionScore],[Gender, companyType, WFHsetupavailable,Age,Tenure,vacationsTaken,Designation,avghourworkday,employeeSatisfactionScore]]
 
-    arr_prep=model.fit_transform(employee)
-    # Predict
-    prediction_raw = encoder.predict(arr_prep)
+    
+    # Predict for 0 to 1
+    arr_prep=features_model.fit_transform(employee)
+    score = thepolymodel.predict(arr_prep)
 
-    # Convert Species index to Species name
-    #prediction_real = encoder.inverse_transform(prediction_raw)
+    if score[0]<0 or score[0]>1:
+        svr=svrmodel.predict(employee)
+        return svr[0]
 
-    return prediction_raw[0]
+    else:
+        return score[0]
 
 
 app = Flask(__name__)
@@ -55,8 +58,9 @@ def index():
 
 
 # Read models
-classifier_loaded = joblib.load("models/features_model")
-encoder_loaded = joblib.load("models/themodel")
+ftr= joblib.load("models/features_model")
+poly = joblib.load("models/thepolymodel")
+svrr=joblib.load("models/svrmodel")
 
 
 @app.route('/prediction')
@@ -66,7 +70,7 @@ def prediction():
                'Age': float(session['Age']),'Tenure': float(session['Tenure']),'vacationsTaken': float(session['vacationsTaken']),'Designation': float(session['Designation']),
                'avghourworkday': float(session['avghourworkday']),'employeeSatisfactionScore': float(session['employeeSatisfactionScore'])}
 
-    results = make_prediction(classifier_loaded, encoder_loaded, content)
+    results = make_prediction(ftr, poly, svrr, content)
 
     return render_template('prediction.html', results=results)
 
